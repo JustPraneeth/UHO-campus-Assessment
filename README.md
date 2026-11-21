@@ -19,13 +19,13 @@ Campus recruitment platform for candidate enrollment, timed assessments, automat
    npm run dev
    ```
 
-6. Start the API and frontend from the workspace root with `npm run dev`:
+6. Build the frontend and start the single Express server from the workspace root:
 
    ```powershell
    npm run dev
    ```
 
-Students register and sign in with email through Clerk. New accounts receive the student role; promote recruiter roles only through the controlled backend seeder or database administration. The API health endpoint is `http://localhost:5000/api/health`.
+Open `http://localhost:5000`. The app and API run on this single server; the API health endpoint is `http://localhost:5000/api/health`. The separate Vite server at port 5173 is not required. Students register and sign in with email through Clerk.
 
 ## Netlify Deployment
 

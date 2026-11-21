@@ -21,14 +21,10 @@ const clerkAuth = clerkMiddleware({ clockSkewInMs: 30_000 });
 
 app.use(helmet());
 app.use(cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5000",
     credentials: true,
   }));
 app.use(express.json({ limit: "2mb" }));
-
-if (process.env.NODE_ENV !== "production") {
-  app.get("/", (req, res) => res.redirect(process.env.CLIENT_ORIGIN || "http://localhost:5173"));
-}
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -56,8 +52,8 @@ app.use("/api/submissions", submissionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/storage", storageRoutes);
 
-if (process.env.NODE_ENV === "production") {
-  const frontendDirectory = path.resolve(__dirname, "../frontend/dist");
+const frontendDirectory = path.resolve(__dirname, "../frontend/dist");
+if (require("node:fs").existsSync(frontendDirectory)) {
   app.use(express.static(frontendDirectory));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api/")) return next();
