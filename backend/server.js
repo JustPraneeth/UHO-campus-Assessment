@@ -18,8 +18,21 @@ const { startExpiredSubmissionWorker } = require("./services/expiredSubmissionWo
 
 const app = express();
 const clerkAuth = clerkMiddleware({ clockSkewInMs: 30_000 });
+const defaultCspDirectives = helmet.contentSecurityPolicy.getDefaultDirectives();
+const clerkDomains = ["https://*.clerk.accounts.dev", "https://*.clerk.accounts.com"];
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...defaultCspDirectives,
+      "connect-src": ["'self'", ...clerkDomains, "https://api.clerk.com", "https://cdn.protect.clerk.com"],
+      "frame-src": ["'self'", ...clerkDomains, "https://challenges.cloudflare.com"],
+      "img-src": [...defaultCspDirectives["img-src"], ...clerkDomains, "https://img.clerk.com"],
+      "script-src": [...defaultCspDirectives["script-src"], ...clerkDomains, "https://cdn.protect.clerk.com", "https://challenges.cloudflare.com"],
+      "worker-src": ["'self'", "blob:"],
+    },
+  },
+}));
 app.use(cors({
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5000",
     credentials: true,
