@@ -1,0 +1,17 @@
+<svg width="900" height="220" viewBox="0 0 900 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="UpperHandOps logo">
+  <g transform="translate(0 0)">
+    <g transform="translate(18,18)">
+      <rect x="0" y="0" width="170" height="170" rx="24" fill="#0b0b0b"/>
+      <circle cx="84" cy="84" r="64" fill="none" stroke="#ffffff" stroke-width="10"/>
+      <text x="84" y="105" text-anchor="middle" font-size="86" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#ffffff">R</text>
+    </g>
+
+    <g transform="translate(220,0)">
+      <text x="0" y="118" font-size="84" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#0b0b0b">UpperHandOps</text>
+      <g transform="translate(625,18)">
+        <circle cx="0" cy="0" r="18" fill="none" stroke="#0b0b0b" stroke-width="5"/>
+        <text x="0" y="10" text-anchor="middle" font-size="30" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#0b0b0b">®</text>
+      </g>
+    </g>
+  </g>
+</svg>
