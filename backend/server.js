@@ -20,15 +20,16 @@ const app = express();
 const clerkAuth = clerkMiddleware({ clockSkewInMs: 30_000 });
 const defaultCspDirectives = helmet.contentSecurityPolicy.getDefaultDirectives();
 const clerkDomains = ["https://*.clerk.accounts.dev", "https://*.clerk.accounts.com"];
+const clerkProtectionDomains = ["https://cdn.protect.clerk.com", "https://*.client.protect.clerk.com"];
 
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...defaultCspDirectives,
-      "connect-src": ["'self'", ...clerkDomains, "https://api.clerk.com", "https://cdn.protect.clerk.com"],
-      "frame-src": ["'self'", ...clerkDomains, "https://challenges.cloudflare.com"],
+      "connect-src": ["'self'", ...clerkDomains, "https://api.clerk.com", ...clerkProtectionDomains],
+      "frame-src": ["'self'", ...clerkDomains, ...clerkProtectionDomains, "https://challenges.cloudflare.com"],
       "img-src": [...defaultCspDirectives["img-src"], ...clerkDomains, "https://img.clerk.com"],
-      "script-src": [...defaultCspDirectives["script-src"], ...clerkDomains, "https://cdn.protect.clerk.com", "https://challenges.cloudflare.com"],
+      "script-src": [...defaultCspDirectives["script-src"], ...clerkDomains, ...clerkProtectionDomains, "https://challenges.cloudflare.com"],
       "worker-src": ["'self'", "blob:"],
     },
   },
