@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { getErrorMessage } from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { getSessionCache, setSessionCache } from "../utils/sessionCache";
 
 const refreshIntervalMs = 60_000;
 const rateLimitWindowMs = 15 * 60_000;
+const studentDashboardCacheTtlMs = 30_000;
 
 function getRateLimitRetryAt(requestError) {
   const headers = requestError.response?.headers;
@@ -28,8 +30,11 @@ function getRateLimitRetryAt(requestError) {
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [exams, setExams] = useState([]);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const cacheKey = `uho:student-dashboard:${user._id}`;
+  const cachedExams = useMemo(() => getSessionCache(cacheKey, studentDashboardCacheTtlMs), [cacheKey]);
+  const hasCachedExams = Array.isArray(cachedExams);
+  const [exams, setExams] = useState(() => hasCachedExams ? cachedExams : []);
+  const [initialLoading, setInitialLoading] = useState(() => !hasCachedExams);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [rateLimitUntil, setRateLimitUntil] = useState(0);
@@ -74,6 +79,7 @@ export default function StudentDashboard() {
     try {
       const { data } = await api.get("/exams/available");
       setExams(data);
+      setSessionCache(cacheKey, data);
       setError("");
       setRateLimitUntil(0);
       rateLimitUntilRef.current = 0;
@@ -96,7 +102,7 @@ export default function StudentDashboard() {
       setInitialLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [cacheKey]);
 
   useEffect(() => {
     loadExams({ force: true });

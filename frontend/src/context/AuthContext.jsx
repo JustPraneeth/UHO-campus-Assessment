@@ -2,11 +2,34 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAuth as useClerkAuth, useSignIn, useSignUp } from "@clerk/react";
 import api, { getErrorMessage } from "../api/axios";
 import { setTokenProvider } from "../api/axios";
+import { getSessionCache, removeSessionCache, setSessionCache } from "../utils/sessionCache";
 
 const AuthContext = createContext(null);
+const profileCacheKey = (userId) => `uho:profile:${userId}`;
+
+function cachedProfileFor(userId) {
+  if (!userId) return null;
+  const cached = getSessionCache(profileCacheKey(userId));
+  if (
+    !cached
+    || typeof cached._id !== "string"
+    || typeof cached.name !== "string"
+    || !["admin", "student"].includes(cached.role)
+  ) return null;
+  return cached;
+}
+
+function cacheProfile(userId, profile) {
+  if (!userId || !profile?._id || !profile.name || !["admin", "student"].includes(profile.role)) return;
+  setSessionCache(profileCacheKey(userId), {
+    _id: profile._id,
+    name: profile.name,
+    role: profile.role,
+  });
+}
 
 export function AuthProvider({ children }) {
-  const { isLoaded, isSignedIn, getToken, signOut: clerkSignOut } = useClerkAuth();
+  const { isLoaded, isSignedIn, userId, getToken, signOut: clerkSignOut } = useClerkAuth();
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const [user, setUser] = useState(null);
@@ -26,21 +49,32 @@ export function AuthProvider({ children }) {
       return () => { active = false; };
     }
     if (finalizingSignIn.current) return () => { active = false; };
-    setLoading(true);
+    const cachedProfile = cachedProfileFor(userId);
+    if (cachedProfile) {
+      setUser(cachedProfile);
+      setProfileError("");
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     fetchProfile()
       .then((data) => {
         if (!active) return;
         setUser(data);
+        cacheProfile(userId, data);
         setProfileError("");
       })
       .catch((err) => {
         if (!active) return;
-        setUser(null);
+        if (!cachedProfile || [401, 403, 404, 409].includes(err.response?.status)) {
+          setUser(null);
+          if (userId) removeSessionCache(profileCacheKey(userId));
+        }
         setProfileError(getErrorMessage(err));
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [getToken, isLoaded, isSignedIn]);
+  }, [getToken, isLoaded, isSignedIn, userId]);
 
   async function fetchProfile(token) {
     const sessionToken = token || await getToken({ skipCache: true });
@@ -63,6 +97,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await fetchProfile(token);
       setUser(data);
+      cacheProfile(userId, data);
       setProfileError("");
       return data;
     } catch (err) {
@@ -246,6 +281,8 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
+    if (userId) removeSessionCache(profileCacheKey(userId));
+    if (user?._id) removeSessionCache(`uho:student-dashboard:${user._id}`);
     await clerkSignOut();
     signIn.reset();
     signUp.reset();

@@ -76,26 +76,30 @@ const getAllExams = asyncHandler(async (req, res) => {
 });
 
 const getAvailableExams = asyncHandler(async (req, res) => {
-  const [{ rows: registrations }, { rows: exams }] = await Promise.all([
-    query("SELECT exam_id FROM assessment_registrations WHERE student_id = $1", [req.authUser.id]),
-    query("SELECT * FROM assessments WHERE is_published = true ORDER BY created_at DESC"),
-  ]);
-  if (!exams.length) return res.json([]);
-  const ids = exams.map((exam) => exam.id);
-  const { rows: submissions } = await query(
-    "SELECT exam_id, status FROM submissions WHERE student_id = $1 AND exam_id = ANY($2::uuid[])",
-    [req.authUser.id, ids]
+  const { rows: exams } = await query(
+    `SELECT a.*,
+            (r.id IS NOT NULL) AS is_registered,
+            s.status AS attempt_status
+     FROM assessments a
+     LEFT JOIN assessment_registrations r
+       ON r.exam_id = a.id AND r.student_id = $1
+     LEFT JOIN submissions s
+       ON s.exam_id = a.id AND s.student_id = $1
+     WHERE a.is_published = true
+     ORDER BY a.created_at DESC`,
+    [req.authUser.id]
   );
-  const registeredIds = new Set(registrations.map((registration) => registration.exam_id));
-  const statusByExam = new Map(submissions.map((submission) => [submission.exam_id, submission.status]));
   const now = new Date();
-  res.json(exams.map((exam) => ({
-    ...toCamel(exam),
-    isRegistered: registeredIds.has(exam.id),
-    attemptStatus: statusByExam.get(exam.id) || (registeredIds.has(exam.id) ? "not-started" : "not-registered"),
-    isExpiredWindow: Boolean(exam.end_time && new Date(exam.end_time) < now),
-    notStartedYet: Boolean(exam.start_time && new Date(exam.start_time) > now),
-  })));
+  res.json(exams.map((exam) => {
+    const { is_registered: isRegistered, attempt_status: attemptStatus, ...assessment } = exam;
+    return {
+      ...toCamel(assessment),
+      isRegistered,
+      attemptStatus: attemptStatus || (isRegistered ? "not-started" : "not-registered"),
+      isExpiredWindow: Boolean(assessment.end_time && new Date(assessment.end_time) < now),
+      notStartedYet: Boolean(assessment.start_time && new Date(assessment.start_time) > now),
+    };
+  }));
 });
 
 const registerCandidate = asyncHandler(async (req, res) => {

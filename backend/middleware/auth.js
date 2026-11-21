@@ -1,6 +1,23 @@
 const asyncHandler = require("express-async-handler");
 const { clerkClient, getAuth } = require("@clerk/express");
 const { query, toCamel } = require("../lib/database");
+const { createSingleflightCache } = require("../lib/singleflightCache");
+
+const getClerkUser = createSingleflightCache(async (userId) => {
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const primaryEmail = clerkUser.emailAddresses.find(
+    (address) => address.id === clerkUser.primaryEmailAddressId
+  );
+  return {
+    email: primaryEmail?.emailAddress.toLowerCase(),
+    emailVerified: primaryEmail?.verification?.status === "verified",
+    firstName: clerkUser.firstName,
+    lastName: clerkUser.lastName,
+  };
+}, {
+  ttlMs: 30_000,
+  shouldCache: (user) => user.emailVerified,
+});
 
 const protect = asyncHandler(async (req, res, next) => {
   const { isAuthenticated, userId } = getAuth(req);
@@ -14,13 +31,12 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new Error("Sign in with your Clerk account to continue");
   }
 
-  const clerkUser = await clerkClient.users.getUser(userId);
-  const emailAddress = clerkUser.emailAddresses.find((address) => address.id === clerkUser.primaryEmailAddressId);
-  if (!emailAddress || emailAddress.verification?.status !== "verified") {
+  const clerkUser = await getClerkUser(userId);
+  if (!clerkUser.emailVerified || !clerkUser.email) {
     res.status(401);
     throw new Error("Verify your email address before continuing");
   }
-  const email = emailAddress.emailAddress.toLowerCase();
+  const email = clerkUser.email;
   const { rows: clerkProfiles } = await query("SELECT * FROM profiles WHERE clerk_id = $1", [userId]);
   let profile = clerkProfiles[0];
 
